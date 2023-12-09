@@ -50,7 +50,7 @@ def main(cfg: DictConfig):
     # What we need to provide to start_simulation() with is a function that can be called at any point in time to
     # create a client. This is what the line below exactly returns.
     client_fn = generate_client_fn(
-        traindatasets, valdatasets, cfg.num_classes)
+        traindatasets, valdatasets, cfg.num_classes, cfg.model)
 
     # 4. Define your strategy
     # A flower strategy orchestrates your FL pipeline. Although it is present in all stages of the FL process
@@ -75,9 +75,9 @@ def main(cfg: DictConfig):
         min_evaluate_clients=cfg.num_clients_per_round_eval,
         min_available_clients=cfg.num_clients,  # total clients in the simulation
         on_fit_config_fn=get_on_fit_config(
-            cfg.config_fit
+            cfg.config_fit, cfg.model
         ),  # a function to execute to obtain the configuration to send to the clients during fit()
-        evaluate_fn=get_evaluate_fn(cfg.num_classes, testdataset),
+        evaluate_fn=get_evaluate_fn(cfg.num_classes, testdataset, cfg.model),
         max_attack_ratio=cfg.max_attack_ratio,
         attack_round=cfg.attack_round,
         num_rounds=cfg.num_rounds

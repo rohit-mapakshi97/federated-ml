@@ -38,7 +38,7 @@ def targeted_label_flipping_attack(dataset: Subset, mapping=None) -> Dataset:
     """Performs targeted label flipping attack based on the given map"""
     poisoned_dataset = PoisonedDataSet(dataset)
     if mapping == None:
-        mapping = {}  # Defined from the reference paper TODO
+        mapping = {}  #TODO Defined from the reference paper
     poisoned_dataset.target_transform = TargetedLabelFlipping(mapping)
     return poisoned_dataset
 

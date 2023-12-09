@@ -1,2 +1,2 @@
-## Flower: A Friendly Federated Learning Framework
-This pipeline is based on: https://github.com/adap/flower
+## Credits 
+* This pipeline is based on Flower: A Friendly Federated Learning Framework https://github.com/adap/flower

@@ -6,11 +6,11 @@ from torch.utils.data import DataLoader
 # Note the model and functions here defined do not have any FL-specific components.
 
 
-class Net(nn.Module):
+class SimpleCNN(nn.Module):
     """A simple CNN suitable for simple vision tasks."""
 
     def __init__(self, num_classes: int) -> None:
-        super(Net, self).__init__()
+        super(SimpleCNN, self).__init__()
         self.conv1 = nn.Conv2d(1, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
