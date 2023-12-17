@@ -12,7 +12,7 @@ from attacks import label_flipping_attack
 from dataset import get_data_numpy
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+# from sklearn.svm import SVC
 from sklearn.metrics import log_loss
 import numpy as np 
 import warnings
