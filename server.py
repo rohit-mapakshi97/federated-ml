@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 
 import torch
 
-from model import SimpleCNN, test
+from model import SimpleCNN, MLP, test
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.linear_model import LogisticRegression
@@ -53,19 +53,36 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "local_epochs": config.local_epochs,
             "is_malicious": False
         }
+    
+    def fit_config_fn_mlp(server_round: int):
+        # This function will be executed by the strategy in its
+        # `configure_fit()` method.
+
+        # Here we are returning the same config on each round but
+        # here you might use the `server_round` input argument to
+        # adapt over time these settings so clients. For example, you
+        # might want clients to use a different learning rate at later
+        # stages in the FL process (e.g. smaller lr after N rounds)
+
+        return {
+            "lr": config.lr,
+            "local_epochs": config.local_epochs,
+            "batch_size": config.batch_size,
+            "is_malicious": False
+        }
 
     if model_name == "SCNN": 
         return fit_config_fn_scnn
     elif model_name == "LGR": 
         return fit_config_fn_lgr
+    elif model_name == "MLP":
+        return fit_config_fn_mlp
     else:
         return None
 
 
 def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
     """Define function for global evaluation on the server."""
-    
-    #TODO control logic for each model  
 
     def evaluate_fn_scnn(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
@@ -103,14 +120,14 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         return loss, {"accuracy": accuracy}
     
     
-    def evaluate_fn_scnn(server_round: int, parameters, config):
+    def evaluate_fn_mlp(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
         # and receives as input arguments the current round number and the
         # parameters of the global model.
         # this function takes these parameters and evaluates the global model
         # on a evaluation / test dataset.
 
-        model = SimpleCNN(num_classes)
+        model = MLP(num_classes)
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -179,5 +196,7 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         return evaluate_fn_scnn
     elif model_name == "LGR": 
         return evaluate_fn_lgr
+    elif model_name == "MLP":
+        return evaluate_fn_mlp
     else: 
         return None
