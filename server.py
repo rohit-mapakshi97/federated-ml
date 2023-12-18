@@ -193,9 +193,9 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         # Accuracy 
         accuracy = model.score(X_test, y_test)
         # Precision, Recall, F1_score
-        precision = precision_score(y_test, y_pred, average=None) 
-        recall = recall_score(y_test, y_pred, average=None)
-        f1 = f1_score(y_test, y_pred, average=None)
+        precision = precision_score(y_test, y_pred, average='weighted') 
+        recall = recall_score(y_test, y_pred, average='weighted')
+        f1 = f1_score(y_test, y_pred, average='weighted')
         
         # Confusion Matrix
         conf_matrix = confusion_matrix(y_test, y_pred, labels=list(range(10)))
