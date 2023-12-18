@@ -13,7 +13,7 @@ from dataset import get_data_numpy
 
 from sklearn.linear_model import LogisticRegression
 # from sklearn.svm import SVC
-from sklearn.metrics import log_loss
+from sklearn.metrics import log_loss, precision_score, recall_score, f1_score, confusion_matrix
 import numpy as np 
 import warnings
 
@@ -156,9 +156,9 @@ class FlowerClientSCNN(fl.client.NumPyClient):
 
         valloader = DataLoader(
             self.valdataset, batch_size=config["batch_size"], shuffle=True, num_workers=2)
-        loss, accuracy = test(self.model, valloader, self.device)
+        loss, accuracy, precision, recall, f1, conf_matrix = test(self.model, valloader, self.device)
 
-        return float(loss), len(valloader), {"accuracy": accuracy}
+        return float(loss), len(valloader), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
         
 class FlowerClientLGR(fl.client.NumPyClient):
     
@@ -251,10 +251,22 @@ class FlowerClientLGR(fl.client.NumPyClient):
 
         valloader = DataLoader(self.valdataset)
         X_test, y_test = get_data_numpy(valloader)
-        loss = log_loss(y_test, self.model.predict_proba(X_test))
+        
+        y_pred_prob = self.model.predict_proba(X_test)
+        y_pred = self.model.predict(X_test)
+        
+        loss = log_loss(y_test, y_pred_prob)
         accuracy = self.model.score(X_test, y_test)
 
-        return float(loss), len(X_test), {"accuracy": accuracy}
+        # Precision, Recall, F1_score
+        precision = precision_score(y_test, y_pred, average=None) 
+        recall = recall_score(y_test, y_pred, average=None)
+        f1 = f1_score(y_test, y_pred, average=None)
+        
+        # Confusion Matrix
+        conf_matrix = confusion_matrix(y_test, y_pred, labels=list(range(10)))
+
+        return float(loss), len(X_test), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
     
 class FlowerClientMLP(fl.client.NumPyClient):
     """Define a Flower Client."""
@@ -334,6 +346,6 @@ class FlowerClientMLP(fl.client.NumPyClient):
 
         valloader = DataLoader(
             self.valdataset, batch_size=config["batch_size"], shuffle=True, num_workers=2)
-        loss, accuracy = test(self.model, valloader, self.device)
+        loss, accuracy, precision, recall, f1, conf_matrix = test(self.model, valloader, self.device)
 
-        return float(loss), len(valloader), {"accuracy": accuracy}
+        return float(loss), len(valloader), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}

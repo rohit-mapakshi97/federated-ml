@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader 
+from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix
 
 # Note the model and functions here defined do not have any FL-specific components.
 
@@ -76,6 +77,9 @@ def test(net, testloader:DataLoader, device: str):
     correct, loss = 0, 0.0
     net.eval()
     net.to(device)
+    
+    all_labels, all_preds = [], []
+    
     with torch.no_grad():
         for data in testloader:
             images, labels = data[0].to(device), data[1].to(device)
@@ -83,5 +87,18 @@ def test(net, testloader:DataLoader, device: str):
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, 1)
             correct += (predicted == labels).sum().item()
+
+            all_labels.extend(labels.cpu().numpy())
+            all_preds.extend(predicted.cpu().numpy())
+
     accuracy = correct / len(testloader.dataset)
-    return loss, accuracy
+
+    # precision, recall, f1
+    precision = precision_score(all_labels, all_preds, average='weighted')
+    recall = recall_score(all_labels, all_preds, average='weighted')
+    f1 = f1_score(all_labels, all_preds, average='weighted')
+
+    # confusion matrix
+    conf_matrix = confusion_matrix(all_labels, all_preds, labels=list(range(10)))
+
+    return loss, accuracy, precision, recall, f1, conf_matrix

@@ -9,7 +9,7 @@ from model import SimpleCNN, MLP, test
 from torch.utils.data import Dataset, DataLoader
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss
+from sklearn.metrics import log_loss, precision_score, recall_score, f1_score, confusion_matrix
 
 from dataset import get_data_numpy
 import numpy as np
@@ -113,11 +113,11 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         # set on the server side, therefore evaluating the global model can only be done by the clients. (see the comment
         # in main.py above the strategy definition for more details on this)
         testloader = DataLoader(testset, batch_size=128)
-        loss, accuracy = test(model, testloader, device)
+        loss, accuracy, precision, recall, f1, conf_matrix = test(model, testloader, device)
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy}
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
     
     
     def evaluate_fn_mlp(server_round: int, parameters, config):
@@ -149,11 +149,11 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         # set on the server side, therefore evaluating the global model can only be done by the clients. (see the comment
         # in main.py above the strategy definition for more details on this)
         testloader = DataLoader(testset, batch_size=128)
-        loss, accuracy = test(model, testloader, device)
+        loss, accuracy, precision, recall, f1, conf_matrix = test(model, testloader, device)
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy}
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
     
     def evaluate_fn_lgr(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
@@ -185,12 +185,24 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         testloader = DataLoader(testset)
         X_test, y_test = get_data_numpy(testloader)
 
-        loss = log_loss(y_test, model.predict_proba(X_test))
+        y_pred_prob = model.predict_proba(X_test)
+        y_pred = model.predict(X_test)
+
+        # Loss
+        loss = log_loss(y_test, y_pred_prob)
+        # Accuracy 
         accuracy = model.score(X_test, y_test)
+        # Precision, Recall, F1_score
+        precision = precision_score(y_test, y_pred, average=None) 
+        recall = recall_score(y_test, y_pred, average=None)
+        f1 = f1_score(y_test, y_pred, average=None)
+        
+        # Confusion Matrix
+        conf_matrix = confusion_matrix(y_test, y_pred, labels=list(range(10)))
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy}
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
 
     if model_name == "SCNN": 
         return evaluate_fn_scnn
