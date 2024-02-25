@@ -14,7 +14,7 @@ from custom_strategy import MaliciousClientFedAvg
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="lgr", version_base=None)
+@hydra.main(config_path="conf", config_name="mlp", version_base=None)
 def main(cfg: DictConfig):
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
@@ -66,7 +66,8 @@ def main(cfg: DictConfig):
     #         clients_to_do_fit = max(num_clients, self.min_fit_clients)
     # ```
     strategy = MaliciousClientFedAvg(  # fl.server.strategy.FedAvg(
-        fraction_fit=0.0,  # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
+        fraction_fit=0.0,
+        # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
         # number of clients to sample for fit()
         min_fit_clients=cfg.num_clients_per_round_fit,
         # similar to fraction_fit, we don't need to use this argument.
@@ -80,6 +81,7 @@ def main(cfg: DictConfig):
         evaluate_fn=get_evaluate_fn(cfg.num_classes, testdataset, cfg.model),
         max_attack_ratio=cfg.max_attack_ratio,
         attack_round=cfg.attack_round,
+        attack_type=cfg.attack_type,
         num_rounds=cfg.num_rounds
     )  # a function to run on the server side to evaluate the global model.
 
@@ -118,22 +120,22 @@ def main(cfg: DictConfig):
     # (This is one way of saving results, others are of course valid :) )
     # Now that the simulation is completed, we could save the results into the directory
     # that Hydra created automatically at the beginning of the experiment.
-    results_path = str(Path(save_path)) +"/" + getOutputFileName(cfg.model, cfg.attack_round, cfg.max_attack_ratio)
+    results_path = str(Path(save_path)) + "/" + getOutputFileName(cfg.model, cfg.attack_round, cfg.max_attack_ratio)
 
     # add the history returned by the strategy into a standard Python dictionary
     # you can add more content if you wish (note that in the directory created by
     # Hydra, you'll already have the config used as well as the log)
     config = {"model": cfg.model, "attack_mode": cfg.attack_round, "attack_ratio": cfg.max_attack_ratio}
-    results = {"history": history, "config":config}
+    results = {"history": history, "config": config}
 
     # save the results as a python pickle
     with open(str(results_path), "wb") as h:
         pickle.dump(results, h, protocol=pickle.HIGHEST_PROTOCOL)
 
-def getOutputFileName(model: str, attack_round: str, attack_ratio: float) -> str: 
-    return model + "_" + attack_round + "_" + str(int(attack_ratio * 100)) + ".pkl" 
-    
+
+def getOutputFileName(model: str, attack_round: str, attack_ratio: float) -> str:
+    return model + "_" + attack_round + "_" + str(int(attack_ratio * 100)) + ".pkl"
+
 
 if __name__ == "__main__":
-
     main()

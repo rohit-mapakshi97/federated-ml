@@ -7,3 +7,10 @@ outputs
 emnist-gzip.zip
 README_FLOWER.md
 # results
+
+.idea
+
+#GANs 
+GAN/MNIST_cDCGAN.py
+GAN/generator_5.pth
+GAN/generated_images

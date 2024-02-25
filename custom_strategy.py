@@ -15,30 +15,31 @@ from flwr.common import (
 
 class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
     def __init__(
-        self,
-        *,
-        fraction_fit: float = 1.0,
-        fraction_evaluate: float = 1.0,
-        min_fit_clients: int = 2,
-        min_evaluate_clients: int = 2,
-        min_available_clients: int = 2,
-        evaluate_fn: Optional[
-            Callable[
-                [int, NDArrays, Dict[str, Scalar]],
-                Optional[Tuple[float, Dict[str, Scalar]]],
-            ]
-        ] = None,
-        on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
-        on_evaluate_config_fn: Optional[Callable[[
-            int], Dict[str, Scalar]]] = None,
-        accept_failures: bool = True,
-        initial_parameters: Optional[Parameters] = None,
-        fit_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-        evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-        # This is the only variable added in the custom class
-        max_attack_ratio: float = 0.3,
-        attack_round="FULL",
-        num_rounds
+            self,
+            *,
+            fraction_fit: float = 1.0,
+            fraction_evaluate: float = 1.0,
+            min_fit_clients: int = 2,
+            min_evaluate_clients: int = 2,
+            min_available_clients: int = 2,
+            evaluate_fn: Optional[
+                Callable[
+                    [int, NDArrays, Dict[str, Scalar]],
+                    Optional[Tuple[float, Dict[str, Scalar]]],
+                ]
+            ] = None,
+            on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+            on_evaluate_config_fn: Optional[Callable[[
+                int], Dict[str, Scalar]]] = None,
+            accept_failures: bool = True,
+            initial_parameters: Optional[Parameters] = None,
+            fit_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
+            evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
+            # This is the only variable added in the custom class
+            max_attack_ratio: float = 0.3,
+            attack_round="FULL",
+            attack_type="LF",
+            num_rounds
     ) -> None:
         """Federated Averaging strategy.
 
@@ -89,9 +90,11 @@ class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
                          evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn)
         self.max_attack_ratio = max_attack_ratio
         self.attack_round = attack_round
+        self.attack_type = attack_type
         self.num_rounds = num_rounds
 
-    def configure_fit(self, server_round: int, parameters: Parameters, client_manager: ClientManager) -> List[Tuple[ClientProxy, FitIns]]:
+    def configure_fit(self, server_round: int, parameters: Parameters, client_manager: ClientManager) -> List[
+        Tuple[ClientProxy, FitIns]]:
         # return client_instructions
         """Configure the next round of training."""
 
@@ -113,11 +116,12 @@ class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
             fit_ins = FitIns(parameters, config)
             client_instructions.append((client, fit_ins))
 
+        # TODO Convert this to first 30%, mid 30% and last 30% - The server rounds may increase
         if self.attack_round == "FULL":
             client_instructions = self.make_malicious_clients(
                 client_instructions)
         elif self.attack_round == "MID":
-            if (self.num_rounds/2 - 1 <= server_round <= self.num_rounds/2 + 1):
+            if (self.num_rounds / 2 - 1 <= server_round <= self.num_rounds / 2 + 1):
                 client_instructions = self.make_malicious_clients(
                     client_instructions)
         elif self.attack_round == "END":
@@ -131,5 +135,6 @@ class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
         for i in range(num_malicious_clients):
             _, fit_ins = client_instructions[i]
             fit_ins.config["is_malicious"] = True
+            fit_ins.config["attack_type"] = self.attack_type
 
         return client_instructions

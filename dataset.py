@@ -3,8 +3,7 @@ from torch.utils.data import random_split, DataLoader, Dataset
 from torchvision.transforms import ToTensor, Normalize, Compose
 from torchvision.datasets import MNIST
 from typing import List
-import numpy as np 
-
+import numpy as np
 
 
 def get_mnist(data_path: str = "./data"):
@@ -18,7 +17,7 @@ def get_mnist(data_path: str = "./data"):
     return trainset, testset
 
 
-def prepare_dataset(num_partitions: int, val_ratio: float = 0.1) -> (List[Dataset], List[Dataset], Dataset) :
+def prepare_dataset(num_partitions: int, val_ratio: float = 0.1) -> (List[Dataset], List[Dataset], Dataset):
     """Download MNIST and generate IID partitions."""
 
     # download MNIST in case it's not already in the system
@@ -60,6 +59,7 @@ def prepare_dataset(num_partitions: int, val_ratio: float = 0.1) -> (List[Datase
 
     return traindatasets_new, valdatasets, testset
 
+
 def get_data_numpy(dataloader: DataLoader) -> (np.ndarray, np.ndarray):
     data_list = []
     labels_list = []
@@ -71,5 +71,5 @@ def get_data_numpy(dataloader: DataLoader) -> (np.ndarray, np.ndarray):
 
     # Concatenate the lists to obtain NumPy arrays
     X = np.concatenate(data_list, axis=0)
-    y = np.concatenate(labels_list, axis=0) 
+    y = np.concatenate(labels_list, axis=0)
     return (X, y)

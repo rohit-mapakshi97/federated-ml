@@ -1,6 +1,5 @@
 from collections import OrderedDict
 
-
 from omegaconf import DictConfig
 
 import torch
@@ -13,7 +12,6 @@ from sklearn.metrics import log_loss, precision_score, recall_score, f1_score, c
 
 from dataset import get_data_numpy
 import numpy as np
-
 
 
 def get_on_fit_config(config: DictConfig, model_name: str):
@@ -36,7 +34,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "batch_size": config.batch_size,
             "is_malicious": False
         }
-    
+
     def fit_config_fn_lgr(server_round: int):
         # This function will be executed by the strategy in its
         # `configure_fit()` method.
@@ -53,7 +51,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "local_epochs": config.local_epochs,
             "is_malicious": False
         }
-    
+
     def fit_config_fn_mlp(server_round: int):
         # This function will be executed by the strategy in its
         # `configure_fit()` method.
@@ -71,9 +69,9 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "is_malicious": False
         }
 
-    if model_name == "SCNN": 
+    if model_name == "SCNN":
         return fit_config_fn_scnn
-    elif model_name == "LGR": 
+    elif model_name == "LGR":
         return fit_config_fn_lgr
     elif model_name == "MLP":
         return fit_config_fn_mlp
@@ -117,9 +115,9 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
-    
-    
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
+                      "confusion_matrix": conf_matrix}
+
     def evaluate_fn_mlp(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
         # and receives as input arguments the current round number and the
@@ -153,8 +151,9 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
-    
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
+                      "confusion_matrix": conf_matrix}
+
     def evaluate_fn_lgr(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
         # and receives as input arguments the current round number and the
@@ -163,7 +162,7 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         # on a evaluation / test dataset.
 
         model = LogisticRegression()
-        
+
         model.classes_ = np.array([i for i in range(num_classes)])
         model.coef_ = parameters[0]
         if model.fit_intercept:
@@ -193,22 +192,23 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         # Accuracy 
         accuracy = model.score(X_test, y_test)
         # Precision, Recall, F1_score
-        precision = precision_score(y_test, y_pred, average='weighted') 
+        precision = precision_score(y_test, y_pred, average='weighted')
         recall = recall_score(y_test, y_pred, average='weighted')
         f1 = f1_score(y_test, y_pred, average='weighted')
-        
+
         # Confusion Matrix
         conf_matrix = confusion_matrix(y_test, y_pred, labels=list(range(10)))
 
         # Report the loss and any other metric (inside a dictionary). In this case
         # we report the global test accuracy.
-        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1, "confusion_matrix": conf_matrix}
+        return loss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
+                      "confusion_matrix": conf_matrix}
 
-    if model_name == "SCNN": 
+    if model_name == "SCNN":
         return evaluate_fn_scnn
-    elif model_name == "LGR": 
+    elif model_name == "LGR":
         return evaluate_fn_lgr
     elif model_name == "MLP":
         return evaluate_fn_mlp
-    else: 
+    else:
         return None
