@@ -14,7 +14,7 @@ from custom_strategy import MaliciousClientFedAvg
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="mlp", version_base=None)
+@hydra.main(config_path="conf", config_name="lgr", version_base=None)
 def main(cfg: DictConfig):
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
@@ -42,7 +42,7 @@ def main(cfg: DictConfig):
     # in our config -- but you can change this!) following a independent and identically distributed (IID)
     # sampling mechanism. This is arguably the simples way of partitioning data but it's a good fit
     # for this introductory tutorial.
-    traindatasets, valdatasets, testdataset = prepare_dataset(cfg.num_clients)
+    traindatasets, valdatasets, testdataset = prepare_dataset(cfg.num_clients, attack_type=cfg.attack_type)
 
     # 3. Define your clients
     # Unlike in standard FL (e.g. see the quickstart-pytorch or quickstart-tensorflow examples in the Flower repo),

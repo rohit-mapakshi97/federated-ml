@@ -1,7 +1,8 @@
+import time
+
 from GAN import MNIST_GAN
-from typing import Any, List
+from typing import Any
 from torch.utils.data import Dataset, Subset
-from torchvision.datasets import MNIST
 import torch
 
 
@@ -12,6 +13,7 @@ class PoisonedDataSet(Dataset):
     def __init__(self, subset: Subset, transform=None) -> None:
         self.subset = subset
         self.transform = transform
+        self.target_transform = None
 
     def __getitem__(self, index) -> Any:
         # Note that your original transforms are already applied here
@@ -25,6 +27,32 @@ class PoisonedDataSet(Dataset):
 
     def __len__(self):
         return len(self.subset)
+
+
+class PartialDataSet(Dataset):
+    def __init__(self, subset: Subset, allowed_labels: set, transform=None) -> None:
+        self.data = []
+        self.labels = []
+        for data, label in subset:
+            if label in allowed_labels:
+                self.data.append(data)
+                self.labels.append(label)
+
+        self.transform = transform
+        self.target_transform = None
+
+    def __getitem__(self, index) -> Any:
+        # Note that your original transforms are already applied here
+        x, y = self.data[index], self.labels[index]
+        if self.transform:
+            # Sometimes the transform is based on label. So added it. Need not Use it if unnecessary
+            x = self.transform(x, y)
+        if self.target_transform:
+            y = self.target_transform(y)
+        return x, y
+
+    def __len__(self):
+        return len(self.data)
 
 
 def get_label_counts(sample: Subset) -> dict:
@@ -97,9 +125,12 @@ def label_flipping_attack(dataset: Subset, num_classes: int = 10, attack_ratio: 
     return poisoned_dataset
 
 
-# GAN Attacks
+def generate_flip_map(missing_labels: list) -> dict:
+    missing_labels.sort()
+    return {missing_labels[i]: missing_labels[(i + 1) % len(missing_labels)] for i in range(len(missing_labels))}
 
 
+## OLD GAN ATTACK IMPLEMENTATION
 class GAN_Attack(object):
     def __init__(self, flip_map: dict, samples_per_class: dict, attack_ratio: float) -> None:
         self.flip_map = flip_map
@@ -142,15 +173,86 @@ class GAN_Attack(object):
         return fake_image.to("cpu")  # All the data in dataloaders are in CPU till training starts
 
 
-def gan_attack(trainset: Subset, mapping=None, attack_ratio: float = 0.2) -> Dataset:
+def gan_attack(trainset: Subset, mapping=None, attack_ratio: float = 0.2, num_labels: int =7) -> Dataset:
     """Performs targeted label flipping attack based on the given map"""
 
+    num_classes = 10
+    all_labels = {i for i in range(num_classes)}
+    random_indices = set(torch.randperm(num_classes)[:num_labels].numpy())
+    missing_labels = list(all_labels.difference(random_indices))
+
     if mapping == None:
-        mapping = {0: 8, 8: 0, 1: 7, 7: 1, 6: 9, 9: 6}
+        mapping = generate_flip_map(missing_labels)
+
     label_counts = get_label_counts(trainset.dataset)
     gan_transform = GAN_Attack(flip_map=mapping, samples_per_class=label_counts, attack_ratio=attack_ratio)
     poisoned_dataset = PoisonedDataSet(subset=trainset, transform=gan_transform)
 
-    poisoned_dataset.target_transform = TargetedLabelFlipping(
-        flip_map=mapping, samples_per_class=label_counts, attack_ratio=attack_ratio)
     return poisoned_dataset
+
+
+def partial_dataset_for_GAN_attack(trainset: Subset, num_labels:int = 7) -> PartialDataSet:
+    num_classes = 10
+    random_indices = set(torch.randperm(num_classes)[:num_labels].numpy())
+    dataset = PartialDataSet(subset=trainset, allowed_labels=random_indices)
+    return dataset
+
+
+
+# GAN Attacks
+# class GANDataset(Dataset):
+#     def __init__(self, flip_map: dict, samples_per_class: dict) -> None:
+#         self.samples_per_class = samples_per_class
+#         self.hp = MNIST_GAN.Hyperparameter()
+#         self.generator = MNIST_GAN.Generator(self.hp).to(torch.device("cuda"))
+#         # TODO externalize this model to config?
+#         self.generator.load_state_dict(torch.load("./GAN/generator_50.pth"))
+#         self.generator.eval()  # important
+
+#         self.samples = []
+#         self.labels = []
+#         for label in samples_per_class.keys():
+#             # Mislabel
+#             fake_images = self.generate_samples(no_images=samples_per_class[label], class_label=flip_map[label])
+#             self.samples.extend(fake_images)
+#             self.labels.extend([label] * samples_per_class[label])
+
+#     def generate_samples(self, no_images: int, class_label: int, device='cuda') -> Any:
+#         # One-hot encode the given class label
+#         device = torch.device(device)
+#         class_labels = torch.eye(self.hp.num_classes, dtype=torch.float32, device=device)[
+#             class_label].unsqueeze(0).repeat(no_images, 1)
+
+#         # Generate random noise
+#         fixed_noise = torch.randn(
+#             (no_images, self.hp.latent_size), device=device)
+
+#         with torch.no_grad():
+#             fake_images = self.generator(fixed_noise.to(device), class_labels.to(device))
+#         # print("_______________________FAKE SAMPLE GENERATED SUCCESSFULLY________________")
+#         return list(fake_images.to("cpu"))  # All the data in dataloaders are in CPU till training starts
+
+#     def __len__(self):
+#         return len(self.samples)
+
+#     def __getitem__(self, idx: int):
+#         return self.samples[idx], self.labels[idx]
+
+
+# def gan_attack(trainset: Subset) -> Dataset:
+#     """Performs targeted label flipping attack based on the given map"""
+#     num_classes = 10  # Labels from 0 to 9
+#     # Generate random non-repeating indices
+#     random_indices = torch.randperm(num_classes)[:7]
+#     # get indices that correspond to one of the selected classes
+#     indices = (torch.tensor(trainset.targets)[..., None] == random_indices).any(-1).nonzero(as_tuple=True)[0]
+
+#     all_labels = {i for i in range(10)}
+
+#     label_counts = get_label_counts(trainset.dataset)
+#     missing_labels = list(all_labels.difference(label_counts))
+#     num_images = sum(label_counts.values()) // len(label_counts)
+#     samples_per_class = {label: num_images for label in missing_labels}
+
+#     gan_dataset = GANDataset(flip_map=generate_flip_map(missing_labels), samples_per_class=samples_per_class)
+#     return ConcatDataset([trainset, gan_dataset])

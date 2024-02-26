@@ -7,8 +7,8 @@ from torch.utils.data import Dataset, DataLoader
 import flwr as fl
 
 from model import SimpleCNN, MLP, train, test
-from typing import List, Tuple, Union
-from attacks import label_flipping_attack, targeted_label_flipping_attack, gan_attack, get_label_counts
+from typing import List
+from attacks import label_flipping_attack, targeted_label_flipping_attack, gan_attack, partial_dataset_for_GAN_attack
 from dataset import get_data_numpy
 
 from sklearn.linear_model import LogisticRegression
@@ -202,7 +202,7 @@ class FlowerClientLGR(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
         # Poison the dataset if the client is malicious
-        self.traindataset = applyAttacks(self.traindataset, config)
+        self.traindataset = applyAttacks(self.traindataset, config, model="LGR")
 
         # copy parameters sent by the server into client's local model
         self.set_parameters(parameters)
@@ -347,16 +347,24 @@ class FlowerClientMLP(fl.client.NumPyClient):
                                              "confusion_matrix": conf_matrix}
 
 
-def applyAttacks(trainset: Dataset, config) -> Dataset:
+def applyAttacks(trainset: Dataset, config, model: str = None) -> Dataset:
     # NOTE: this attack ratio is different, This is for number of samples to attack.
     ## The one in the config file is to select number of malicious clients
-    if config["is_malicious"]:
-        print("----------------------------------Dataset Attacked------------------------------")
-        if config["attack_type"] == "TLF":
+
+    if config["attack_type"] == "TLF":
+        if config["is_malicious"]:
+            print("----------------------------------Dataset Attacked------------------------------")
             return targeted_label_flipping_attack(trainset=trainset, attack_ratio=1.0)
-        elif config["attack_type"] == "GAN":
-            return gan_attack(trainset=trainset, attack_ratio=1.0)  # Change this if the program crashes
-        else:
+    elif config["attack_type"] == "GAN":
+        if config["is_malicious"]:
+            print("----------------------------------Dataset Attacked------------------------------")
+            return gan_attack(trainset=trainset)  # Change this if the program crashes
+        # LGR model needs samples for all labels
+        if model != "LGR":
+            return partial_dataset_for_GAN_attack(trainset=trainset)
+    else:
+        if config["is_malicious"]:
+            print("----------------------------------Dataset Attacked------------------------------")
             return label_flipping_attack(dataset=trainset, num_classes=10, attack_ratio=1.0)
 
     return trainset

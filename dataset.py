@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import random_split, DataLoader, Dataset
+from torch.utils.data import random_split, DataLoader, Dataset, Subset
 from torchvision.transforms import ToTensor, Normalize, Compose
 from torchvision.datasets import MNIST
 from typing import List
@@ -17,7 +17,8 @@ def get_mnist(data_path: str = "./data"):
     return trainset, testset
 
 
-def prepare_dataset(num_partitions: int, val_ratio: float = 0.1) -> (List[Dataset], List[Dataset], Dataset):
+def prepare_dataset(num_partitions: int, val_ratio: float = 0.1, attack_type: str = "LF") -> (
+        List[Dataset], List[Dataset], Dataset):
     """Download MNIST and generate IID partitions."""
 
     # download MNIST in case it's not already in the system
@@ -36,9 +37,7 @@ def prepare_dataset(num_partitions: int, val_ratio: float = 0.1) -> (List[Datase
     # amount of training examples, each client having a different distribution over the labels (maybe even some
     # clients not having a single training example for certain classes). If you are curious, you can check online
     # for Dirichlet (LDA) or pathological dataset partitioning in FL. A place to start is: https://arxiv.org/abs/1909.06335
-    trainsets = random_split(
-        trainset, partition_len, torch.Generator().manual_seed(2023)
-    )
+    trainsets = random_split(trainset, partition_len, torch.Generator().manual_seed(2023))
 
     # create dataloaders with train+val support
     traindatasets_new = []
@@ -73,3 +72,45 @@ def get_data_numpy(dataloader: DataLoader) -> (np.ndarray, np.ndarray):
     X = np.concatenate(data_list, axis=0)
     y = np.concatenate(labels_list, axis=0)
     return (X, y)
+
+# UNUSED CODE
+# def random_split_with_missing_labels(trainset: MNIST, num_partitions, labels_to_exclude: int = 3) -> List[Dataset]:
+#     # Reproducibility
+#     np.random.seed(2023)
+#     # Determine the distribution of labels in the original dataset
+#     label_distribution = {label: [] for label in range(10)}
+#     for idx, (image, label) in enumerate(trainset):
+#         label_distribution[label].append(idx)
+#
+#     subset_length = len(trainset) // num_partitions
+#     samples_per_label_ideal = subset_length // (10 - labels_to_exclude)
+#     samples_per_label = {label: len(label_distribution[label]) for label in label_distribution.keys()}
+#
+#     # Create a list to store partitions
+#     partitions = []
+#     # Create partitions
+#     for _ in range(num_partitions):
+#         # Randomly select labels to exclude from this partition
+#         excluded_labels = np.random.choice(list(label_distribution.keys()), size=labels_to_exclude, replace=False)
+#
+#         # Create a subset of indices excluding the specified labels
+#         subset_indices = []
+#         for label, indices in label_distribution.items():
+#             if label not in excluded_labels:
+#                 no_samples = getNumberOfSamplesForLabel(label, samples_per_label, samples_per_label_ideal)
+#                 samples_per_label[label] -= no_samples
+#                 if no_samples > 0:
+#                     label_indices = np.random.choice(indices, size=no_samples, replace=False)
+#                     subset_indices.extend(label_indices)
+#                     label_distribution[label] = list(set(indices) - set(label_indices))  # NO OVERLAPPING SAMPLES
+#
+#         # Create a Subset object for the partition
+#         partition = Subset(trainset, subset_indices)
+#         partitions.append(partition)
+#
+#     return partitions
+
+# def getNumberOfSamplesForLabel(label: int, samples_per_label: dict, ideal_no) -> int:
+#     if ideal_no > samples_per_label[label]:
+#         return samples_per_label[label]
+#     return ideal_no

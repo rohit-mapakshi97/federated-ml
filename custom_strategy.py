@@ -128,6 +128,10 @@ class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
             if (self.num_rounds - 2 <= server_round <= self.num_rounds):
                 client_instructions = self.make_malicious_clients(
                     client_instructions)
+        # Attack type is set in all clients (This is just for easier programming flow)
+        for i in range(len(client_instructions)):
+            _, fit_ins = client_instructions[i]
+            fit_ins.config["attack_type"] = self.attack_type
         return client_instructions
 
     def make_malicious_clients(self, client_instructions: list) -> list:
@@ -135,6 +139,5 @@ class MaliciousClientFedAvg(fl.server.strategy.FedAvg):
         for i in range(num_malicious_clients):
             _, fit_ins = client_instructions[i]
             fit_ins.config["is_malicious"] = True
-            fit_ins.config["attack_type"] = self.attack_type
 
         return client_instructions
