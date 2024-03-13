@@ -1,3 +1,4 @@
+import time
 from collections import OrderedDict
 
 from omegaconf import DictConfig
@@ -13,6 +14,10 @@ from sklearn.metrics import log_loss, precision_score, recall_score, f1_score, c
 
 from dataset import get_data_numpy
 import numpy as np
+import xgboost as xgb
+from flwr.common.logger import log
+from logging import INFO
+from sklearn.metrics import accuracy_score
 
 
 def get_on_fit_config(config: DictConfig, model_name: str):
@@ -33,6 +38,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "momentum": config.momentum,
             "local_epochs": config.local_epochs,
             "batch_size": config.batch_size,
+            "server_round": server_round,
             "is_malicious": False
         }
 
@@ -50,6 +56,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "penalty": config.penalty,
             "warm_start": config.warm_start,
             "local_epochs": config.local_epochs,
+            "server_round": server_round,
             "is_malicious": False
         }
 
@@ -68,6 +75,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             # "warm_start": config.warm_start,
             "local_epochs": config.local_epochs,
             "C": config.C,
+            "server_round": server_round,
             "is_malicious": False
         }
 
@@ -85,6 +93,34 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "lr": config.lr,
             "local_epochs": config.local_epochs,
             "batch_size": config.batch_size,
+            "server_round": server_round,
+            "is_malicious": False
+        }
+
+    def fit_config_fn_xgb(server_round: int):
+        # This function will be executed by the strategy in its
+        # `configure_fit()` method.
+
+        # Here we are returning the same config on each round but
+        # here you might use the `server_round` input argument to
+        # adapt over time these settings so clients. For example, you
+        # might want clients to use a different learning rate at later
+        # stages in the FL process (e.g. smaller lr after N rounds)
+
+        return {
+            # "num_class": 10,
+            "local_epochs": config.local_epochs,
+            "eta": config.eta,
+            "max_depth": config.max_depth,
+            "subsample": config.subsample,
+            "colsample_bytree": config.colsample_bytree,
+            "objective": config.objective,
+            "eval_metric": config.eval_metric,
+            "alpha": config.alpha,
+            "lambda": config.Lambda,
+            "tree_method": config.tree_method,
+            "device": config.device,
+            "server_round": server_round,
             "is_malicious": False
         }
 
@@ -96,12 +132,64 @@ def get_on_fit_config(config: DictConfig, model_name: str):
         return fit_config_fn_mlp
     elif model_name == "LSVC":
         return fit_config_fn_lsvc
+    elif model_name == "XGB":
+        return fit_config_fn_xgb
     else:
         return None
 
 
 def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
     """Define function for global evaluation on the server."""
+
+    def evaluate_fn_xgboost(server_round: int, parameters, config):
+        # For round 1 skip evaluation
+        if server_round == 0:
+            return 0, {}
+        else:
+            params = {
+                "num_class": 10,
+                "eta": 0.08,
+                "max_depth": 6,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "objective": "multi:softmax",
+                "eval_metric": "mlogloss",
+                "alpha": 8,
+                "lambda": 2,
+                "tree_method": "hist",
+                "device": "cuda"
+            }
+            bst = xgb.Booster(params=params)
+            para_b = None
+            for para in parameters.tensors:
+                para_b = bytearray(para)
+
+            # Load global model
+            bst.load_model(para_b)
+            # Run evaluation
+            X_test, y_test = get_data_numpy(DataLoader(testset))
+            test_dmatrix = xgb.DMatrix(X_test, label=y_test)
+
+            eval_results = bst.eval_set(
+                evals=[(test_dmatrix, "valid")],
+                iteration=bst.num_boosted_rounds() - 1,
+            )
+
+            mlogloss = float(eval_results.split("\t")[1].split(":")[1])
+
+            # Making predictions
+            y_pred = bst.predict(test_dmatrix)
+            y_pred_classes = [round(value) for value in y_pred]
+
+            # Calculating additional metrics
+            accuracy = accuracy_score(y_test, y_pred_classes)
+            precision = precision_score(y_test, y_pred_classes, average='weighted')
+            recall = recall_score(y_test, y_pred_classes, average='weighted')
+            f1 = f1_score(y_test, y_pred_classes, average='weighted')
+            conf_matrix = confusion_matrix(y_test, y_pred_classes)
+
+            return mlogloss, {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
+                     "confusion_matrix": conf_matrix}
 
     def evaluate_fn_scnn(server_round: int, parameters, config):
         # This function is called by the strategy's `evaluate()` method
@@ -286,5 +374,7 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         return evaluate_fn_mlp
     elif model_name == "LSVC":
         return evaluate_fn_lscv
+    elif model_name == "XGB":
+        return evaluate_fn_xgboost
     else:
         return None

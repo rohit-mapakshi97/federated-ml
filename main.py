@@ -1,20 +1,16 @@
 import pickle
 from pathlib import Path
-
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
-
 import flwr as fl
-
 from dataset import prepare_dataset
 from client import generate_client_fn
-from server import get_on_fit_config, get_evaluate_fn
-from custom_strategy import MaliciousClientFedAvg
+from custom_strategy import get_custom_strategy
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="lsvc", version_base=None)
+@hydra.main(config_path="conf", config_name="xgb_bagging", version_base=None)
 def main(cfg: DictConfig):
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
@@ -50,7 +46,7 @@ def main(cfg: DictConfig):
     # What we need to provide to start_simulation() with is a function that can be called at any point in time to
     # create a client. This is what the line below exactly returns.
     client_fn = generate_client_fn(
-        traindatasets, valdatasets, cfg.num_classes, cfg.model)
+        traindatasets, valdatasets, cfg.num_classes, cfg.model, cfg= cfg)
 
     # 4. Define your strategy
     # A flower strategy orchestrates your FL pipeline. Although it is present in all stages of the FL process
@@ -65,25 +61,7 @@ def main(cfg: DictConfig):
     #         num_clients = int(num_available_clients * self.fraction_fit)
     #         clients_to_do_fit = max(num_clients, self.min_fit_clients)
     # ```
-    strategy = MaliciousClientFedAvg(  # fl.server.strategy.FedAvg(
-        fraction_fit=0.0,
-        # in simulation, since all clients are available at all times, we can just use `min_fit_clients` to control exactly how many clients we want to involve during fit
-        # number of clients to sample for fit()
-        min_fit_clients=cfg.num_clients_per_round_fit,
-        # similar to fraction_fit, we don't need to use this argument.
-        fraction_evaluate=0.0,
-        # number of clients to sample for evaluate()
-        min_evaluate_clients=cfg.num_clients_per_round_eval,
-        min_available_clients=cfg.num_clients,  # total clients in the simulation
-        on_fit_config_fn=get_on_fit_config(
-            cfg.config_fit, cfg.model
-        ),  # a function to execute to obtain the configuration to send to the clients during fit()
-        evaluate_fn=get_evaluate_fn(cfg.num_classes, testdataset, cfg.model),
-        max_attack_ratio=cfg.max_attack_ratio,
-        attack_round=cfg.attack_round,
-        attack_type=cfg.attack_type,
-        num_rounds=cfg.num_rounds
-    )  # a function to run on the server side to evaluate the global model.
+    strategy = get_custom_strategy(model=cfg.model, cfg=cfg, testdataset=testdataset)
 
     # 5. Start Simulation
     # With the dataset partitioned, the client function and the strategy ready, we can now launch the simulation!
