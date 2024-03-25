@@ -237,7 +237,7 @@ class MCFedXGBBagging(FedXgbBagging):
 
 
 def get_custom_strategy(model: str, cfg: DictConfig, testdataset: Dataset):
-    if model == 'XGB':
+    if model == 'XGB' or model == "RF":
         if cfg.train_method == "bagging":
             # Bagging training
             strategy = MCFedXGBBagging(

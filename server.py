@@ -39,7 +39,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "local_epochs": config.local_epochs,
             "batch_size": config.batch_size,
             "server_round": server_round,
-            "is_malicious": False
+            "is_malicious": False # Will be modified in strategy
         }
 
     def fit_config_fn_lgr(server_round: int):
@@ -57,7 +57,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "warm_start": config.warm_start,
             "local_epochs": config.local_epochs,
             "server_round": server_round,
-            "is_malicious": False
+            "is_malicious": False # Will be modified in strategy
         }
 
     def fit_config_fn_lsvc(server_round: int):
@@ -76,7 +76,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "local_epochs": config.local_epochs,
             "C": config.C,
             "server_round": server_round,
-            "is_malicious": False
+            "is_malicious": False # Will be modified in strategy
         }
 
     def fit_config_fn_mlp(server_round: int):
@@ -94,7 +94,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "local_epochs": config.local_epochs,
             "batch_size": config.batch_size,
             "server_round": server_round,
-            "is_malicious": False
+            "is_malicious": False # Will be modified in strategy
         }
 
     def fit_config_fn_xgb(server_round: int):
@@ -106,10 +106,9 @@ def get_on_fit_config(config: DictConfig, model_name: str):
         # adapt over time these settings so clients. For example, you
         # might want clients to use a different learning rate at later
         # stages in the FL process (e.g. smaller lr after N rounds)
-
-        return {
-            # "num_class": 10,
+        on_fit_config = {
             "local_epochs": config.local_epochs,
+            # "early_stopping": config.early_stopping,
             "eta": config.eta,
             "max_depth": config.max_depth,
             "subsample": config.subsample,
@@ -121,8 +120,13 @@ def get_on_fit_config(config: DictConfig, model_name: str):
             "tree_method": config.tree_method,
             "device": config.device,
             "server_round": server_round,
-            "is_malicious": False
+            "is_malicious": False # Will be modified in strategy
         }
+        # Random Forest Params
+        if model_name == "RF":
+            on_fit_config["num_parallel_tree"] = config.num_parallel_tree
+
+        return on_fit_config
 
     if model_name == "SCNN":
         return fit_config_fn_scnn
@@ -132,7 +136,7 @@ def get_on_fit_config(config: DictConfig, model_name: str):
         return fit_config_fn_mlp
     elif model_name == "LSVC":
         return fit_config_fn_lsvc
-    elif model_name == "XGB":
+    elif model_name == "XGB" or model_name == "RF":
         return fit_config_fn_xgb
     else:
         return None
@@ -159,6 +163,10 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
                 "tree_method": "hist",
                 "device": "cuda"
             }
+            # Random Forest Params
+            if model_name == "RF":
+                params["num_parallel_tree"] = 100
+
             bst = xgb.Booster(params=params)
             para_b = None
             for para in parameters.tensors:
@@ -374,7 +382,7 @@ def get_evaluate_fn(num_classes: int, testset: Dataset, model_name: str):
         return evaluate_fn_mlp
     elif model_name == "LSVC":
         return evaluate_fn_lscv
-    elif model_name == "XGB":
+    elif model_name == "XGB" or model_name == "RF":
         return evaluate_fn_xgboost
     else:
         return None

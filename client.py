@@ -98,7 +98,8 @@ def generate_client_fn(traindataset_list: List[Dataset], valdataset_list: List[D
             valdataset=valdataset_list[int(cid)],
             num_classes=num_classes,
             num_features=28 * 28,  # TODO configurable?
-            train_method=cfg.train_method
+            train_method=cfg.train_method,
+            model_name=model
         )
 
 
@@ -112,7 +113,7 @@ def generate_client_fn(traindataset_list: List[Dataset], valdataset_list: List[D
         return client_fn_mlp
     elif model == "LSVC":
         return client_fn_lsvc
-    elif model == "XGB":
+    elif model == "XGB" or model == "RF":
         return client_fn_xgboost
     else:
         return None
@@ -500,9 +501,9 @@ class FlowerClientXGB(fl.client.Client):
     '''Define a Flower Client'''
 
     def __init__(self, traindataset: Dataset, valdataset: Dataset, num_classes: int, num_features,
-                 train_method) -> None:
+                 train_method, model_name: str = "XGB") -> None:
         super().__init__()
-
+        self.model_name = model_name
         # the dataloaders that point to the data associated to this client
         self.traindataset = traindataset
         self.valdataset = valdataset
@@ -555,6 +556,10 @@ class FlowerClientXGB(fl.client.Client):
             "tree_method": ins.config["tree_method"],
             "device": ins.config["device"]
         }
+        # early_stopping = ins.config["early_stopping"]
+        # Random Forest Params
+        if self.model_name == "RF":
+            params["num_parallel_tree"] = ins.config["num_parallel_tree"]
 
         # self.params = params
 
@@ -571,7 +576,7 @@ class FlowerClientXGB(fl.client.Client):
             bst = xgb.train(
                 params,
                 train_dmatrix,
-                num_boost_round=num_local_round,
+                num_boost_round=num_local_round, #  num_boost_round = 1 for Random Forest (configured)
                 evals=[(val_dmatrix, "validate"), (train_dmatrix, "train")],
             )
         else:
