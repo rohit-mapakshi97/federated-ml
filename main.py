@@ -10,7 +10,7 @@ from custom_strategy import get_custom_strategy
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="rf", version_base=None)
+@hydra.main(config_path="conf", config_name="rnn", version_base=None)
 def main(cfg: DictConfig):
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
