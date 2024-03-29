@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import flwr as fl
 
-from model import SimpleCNN, MLP, train, test, RNNModel, testRNN, trainRNN
+from model import SimpleCNN, MLP, train, test, RNNModel, testRNN, trainRNN, LSTM
 from typing import List
 from attacks import label_flipping_attack, targeted_label_flipping_attack, gan_attack, partial_dataset_for_GAN_attack
 from dataset import get_data_numpy
@@ -85,6 +85,19 @@ def generate_client_fn(traindataset_list: List[Dataset], valdataset_list: List[D
             num_classes=num_classes
         ).to_client()
 
+    def client_fn_lstm(cid: str):
+        # This function will be called internally by the VirtualClientEngine
+        # Each time the cid-th client is told to participate in the FL
+        # simulation (whether it is for doing fit() or evaluate())
+
+        # Returns a normal FLowerClient that will use the cid-th train/val
+        # dataloaders as it's local data.
+        return FlowerClientLSTM(
+            traindataset=traindataset_list[int(cid)],
+            valdataset=valdataset_list[int(cid)],
+            num_classes=num_classes
+        ).to_client()
+
     def client_fn_lsvc(cid: str):
         # This function will be called internally by the VirtualClientEngine
         # Each time the cid-th client is told to participate in the FL
@@ -130,6 +143,8 @@ def generate_client_fn(traindataset_list: List[Dataset], valdataset_list: List[D
         return client_fn_xgboost
     elif model == "RNN":
         return client_fn_rnn
+    elif model == "LSTM":
+        return client_fn_lstm
     else:
         return None
 
@@ -414,6 +429,86 @@ class FlowerClientRNN(fl.client.NumPyClient):
 
         # a model that is randomly initialised at first
         self.model = RNNModel(num_classes)
+        self.num_classes = num_classes
+
+        # figure out if this client has access to GPU support or not
+        self.device = torch.device(
+            "cuda:0" if torch.cuda.is_available() else "cpu")
+
+    def set_parameters(self, parameters):
+        """Receive parameters and apply them to the local model."""
+        params_dict = zip(self.model.state_dict().keys(), parameters)
+
+        state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+
+        self.model.load_state_dict(state_dict, strict=True)
+
+    def get_parameters(self, config: Dict[str, Scalar]):
+        """Extract model parameters and return them as a list of numpy arrays."""
+
+        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+
+    def fit(self, parameters, config):
+        """Train model received by the server (parameters) using the data.
+
+        that belongs to this client. Then, send it back to the server.
+        """
+        # Poison the dataset if the client is malicious
+        self.traindataset = applyAttacks(trainset=self.traindataset, config=config)
+
+        # copy parameters sent by the server into client's local model
+        self.set_parameters(parameters)
+
+        # fetch elements in the config sent by the server. Note that having a config
+        # sent by the server each time a client needs to participate is a simple but
+        # powerful mechanism to adjust these hyperparameters during the FL process. For
+        # example, maybe you want clients to reduce their LR after a number of FL rounds.
+        # or you want clients to do more local epochs at later stages in the simulation
+        # you can control these by customising what you pass to `on_fit_config_fn` when
+        # defining your strategy.
+        lr = config["lr"]
+        epochs = config["local_epochs"]
+
+        # a very standard looking optimiser
+        optim = torch.optim.SGD(self.model.parameters(), lr=lr)
+
+        # do local training. This function is identical to what you might
+        # have used before in non-FL projects. For more advance FL implementation
+        # you might want to tweak it but overall, from a client perspective the "local
+        # training" can be seen as a form of "centralised training" given a pre-trained
+        # model (i.e. the model received from the server)
+        trainloader = DataLoader(
+            self.traindataset, batch_size=config["batch_size"], shuffle=True, num_workers=2)
+        trainRNN(self.model, trainloader, optim, epochs, self.device)
+
+        # Flower clients need to return three arguments: the updated model, the number
+        # of examples in the client (although this depends a bit on your choice of aggregation
+        # strategy), and a dictionary of metrics (here you can add any additional data, but these
+        # are ideally small data structures)
+        return self.get_parameters({}), len(trainloader), {}
+
+    def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
+        self.set_parameters(parameters)
+
+        valloader = DataLoader(
+            self.valdataset, batch_size=config["batch_size"], shuffle=True, num_workers=2)
+        loss, accuracy, precision, recall, f1, conf_matrix = testRNN(self.model, valloader, self.device)
+
+        return float(loss), len(valloader), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
+                                             "confusion_matrix": conf_matrix}
+
+class FlowerClientLSTM(fl.client.NumPyClient):
+    """Define a Flower Client."""
+
+    def __init__(self, traindataset: Dataset, valdataset: Dataset, num_classes: int) -> None:
+        super().__init__()
+
+        # the dataloaders that point to the data associated to this client
+        self.traindataset = traindataset
+        self.valdataset = valdataset
+
+        # a model that is randomly initialised at first
+        self.model = LSTM(num_classes)
         self.num_classes = num_classes
 
         # figure out if this client has access to GPU support or not

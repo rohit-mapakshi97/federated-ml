@@ -7,11 +7,13 @@ import flwr as fl
 from dataset import prepare_dataset
 from client import generate_client_fn
 from custom_strategy import get_custom_strategy
+import time
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="rnn", version_base=None)
+@hydra.main(config_path="conf", config_name="lstm", version_base=None)
 def main(cfg: DictConfig):
+    start_time = time.time()
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
     # Hydra automatically creates a directory for your experiments
@@ -110,6 +112,8 @@ def main(cfg: DictConfig):
     with open(str(results_path), "wb") as h:
         pickle.dump(results, h, protocol=pickle.HIGHEST_PROTOCOL)
 
+    end_time = time.time()
+    print("Time taken:", end_time - start_time)
 
 def getOutputFileName(model: str, attack_round: str, attack_ratio: float) -> str:
     return model + "_" + attack_round + "_" + str(int(attack_ratio * 100)) + ".pkl"

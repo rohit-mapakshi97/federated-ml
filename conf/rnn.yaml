@@ -6,7 +6,7 @@
 # much more advanced usage of Hydra configs
 
 model: "RNN" #SCNN: Simple-CNN, LGR: Logistic Regression, SVC: Support Vector Classifier, MLP, RNN
-num_rounds: 100 # number of FL rounds in the experiment
+num_rounds: 10 # number of FL rounds in the experiment
 num_clients: 10 # number of total clients available (this is also the number of partitions we need to create)
 num_classes: 10 # number of classes in our dataset (we use MNIST) -- this tells the model how to setup its output fully-connected layer
 num_clients_per_round_fit: 10 # number of clients to involve in each fit round (fit  round = clients receive the model from the server and do local training)
@@ -16,6 +16,6 @@ attack_round: "FULL" # FULL, MID, END are the options
 attack_type: "LF" #LF, TLF, GAN
 config_fit: # a config that each client will receive (this is send by the server) when they are sampled. This allows you to dynamically configure the training on the client side as the simulation progresses
   lr: 0.1 # learning rate to use by the clients
-  local_epochs: 1 # number of training epochs each clients does in a fit() round
+  local_epochs: 10 # number of training epochs each clients does in a fit() round
   batch_size: 20 # batch size to use by clients during training
   

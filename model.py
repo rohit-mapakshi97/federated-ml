@@ -116,10 +116,10 @@ class RNNModel(nn.Module):
 
         # batch_first=True causes input/output tensors to be of shape
         # (batch_dim, seq_dim, feature_dim)
-        self.rnn = nn.RNN(28, 100, 2, batch_first=True, nonlinearity='tanh')
+        self.rnn = nn.RNN(28, self.hidden_dim, self.layer_dim, batch_first=True, nonlinearity='tanh')
 
         # Readout layer
-        self.fc = nn.Linear(100, num_classes)
+        self.fc = nn.Linear(self.hidden_dim, num_classes)
 
     def forward(self, x):
         # Initialize hidden state with zeros
@@ -137,6 +137,42 @@ class RNNModel(nn.Module):
         # out.size() --> 100, 10
         return out
 
+
+class LSTM(nn.Module):
+    def __init__(self, num_classes: int):
+        super(LSTM, self).__init__()
+        # Hidden dimensions
+        self.hidden_dim = 64
+
+        # hidden layers
+        self.layer_dim = 3
+
+        # batch_first=True causes input/output tensors to be of shape
+        # (batch_dim, seq_dim, feature_dim)
+        self.lstm = nn.LSTM(28, self.hidden_dim, self.layer_dim, batch_first=True)
+
+        # Readout layer
+        self.fc = nn.Linear(self.hidden_dim, num_classes)
+
+    def forward(self, x):
+        # Initialize hidden state with zeros
+        h0 = torch.zeros(self.layer_dim, x.size(0), self.hidden_dim).requires_grad_().to(x.device)
+
+        # Initialize cell state
+        c0 = torch.zeros(self.layer_dim, x.size(0), self.hidden_dim).requires_grad_().to(x.device)
+
+        # One time step
+        # We need to detach the hidden state to prevent exploding/vanishing gradients
+        # This is part of truncated backpropagation through time (BPTT)
+        # One time step
+        out, (hn, cn) = self.lstm(x, (h0.detach(), c0.detach()))
+
+        # Index hidden state of last time step
+        # out.size() --> 100, 28, 100
+        # out[:, -1, :] --> 100, 100 --> just want last time step hidden states!
+        out = self.fc(out[:, -1, :])
+        # out.size() --> 100, 10
+        return out
 
 def trainRNN(net, trainloader: DataLoader, optimizer, epochs, device: str):
     """Train the network on the training set.
