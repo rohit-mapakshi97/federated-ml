@@ -1,0 +1,23 @@
+model: RF
+num_rounds: 10
+num_clients: 50
+num_classes: 10
+num_clients_per_round_fit: 50
+num_clients_per_round_eval: 10
+max_attack_ratio: 0.25
+attack_round: END
+attack_type: LF
+train_method: bagging
+config_fit:
+  local_epochs: 1
+  num_parallel_tree: 100
+  eta: 0.08
+  max_depth: 6
+  subsample: 0.97
+  colsample_bytree: 0.963
+  objective: multi:softmax
+  eval_metric: mlogloss
+  alpha: 8
+  Lambda: 2
+  tree_method: hist
+  device: cuda

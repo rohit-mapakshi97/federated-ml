@@ -10,6 +10,7 @@ import flwr as fl
 from model import SimpleCNN, MLP, train, test, RNNModel, testRNN, trainRNN, LSTM
 from typing import List
 from attacks import label_flipping_attack, targeted_label_flipping_attack, gan_attack, partial_dataset_for_GAN_attack
+from attacks import mpaf_attack_nn, mpaf_attack_sklearn
 from dataset import get_data_numpy
 
 from sklearn.linear_model import LogisticRegression
@@ -166,6 +167,8 @@ class FlowerClientSCNN(fl.client.NumPyClient):
         # figure out if this client has access to GPU support or not
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.is_malicious = False
+        self.attack_type = None
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -177,8 +180,10 @@ class FlowerClientSCNN(fl.client.NumPyClient):
 
     def get_parameters(self, config: Dict[str, Scalar]):
         """Extract model parameters and return them as a list of numpy arrays."""
-
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        state_dict = self.model.state_dict()
+        if self.attack_type == "MPAF" and self.is_malicious:
+            state_dict = mpaf_attack_nn(state_dict, self.device)
+        return [val.cpu().numpy() for _, val in state_dict.items()]
 
     def fit(self, parameters, config):
         """Train model received by the server (parameters) using the data.
@@ -186,6 +191,8 @@ class FlowerClientSCNN(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
         # Poison the dataset if the client is malicious
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         self.trainDataset = applyAttacks(self.trainDataset, config)
 
         # copy parameters sent by the server into client's local model
@@ -251,6 +258,9 @@ class FlowerClientLGR(fl.client.NumPyClient):
         self.model.coef_ = np.zeros((num_classes, self.num_features))
         if self.model.fit_intercept:
             self.model.intercept_ = np.zeros((num_classes,))
+        self.attack_type = None
+        self.is_malicious = False
+
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -265,6 +275,8 @@ class FlowerClientLGR(fl.client.NumPyClient):
             params = [self.model.coef_, self.model.intercept_]
         else:
             params = [self.model.coef_, ]
+        if self.attack_type == "MPAF" and self.is_malicious:
+            params = mpaf_attack_sklearn(params)
         return params
 
     def fit(self, parameters, config):
@@ -272,6 +284,8 @@ class FlowerClientLGR(fl.client.NumPyClient):
 
         that belongs to this client. Then, send it back to the server.
         """
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         # Poison the dataset if the client is malicious
         self.traindataset = applyAttacks(self.traindataset, config, model="LGR")
 
@@ -354,6 +368,8 @@ class FlowerClientMLP(fl.client.NumPyClient):
         # figure out if this client has access to GPU support or not
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.attack_type = None
+        self.is_malicious = False
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -365,8 +381,10 @@ class FlowerClientMLP(fl.client.NumPyClient):
 
     def get_parameters(self, config: Dict[str, Scalar]):
         """Extract model parameters and return them as a list of numpy arrays."""
-
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        state_dict = self.model.state_dict()
+        if self.attack_type == "MPAF" and self.is_malicious:
+            state_dict = mpaf_attack_nn(state_dict, self.device)
+        return [val.cpu().numpy() for _, val in state_dict.items()]
 
     def fit(self, parameters, config):
         """Train model received by the server (parameters) using the data.
@@ -374,6 +392,8 @@ class FlowerClientMLP(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
         # Poison the dataset if the client is malicious
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         self.traindataset = applyAttacks(trainset=self.traindataset, config=config)
 
         # copy parameters sent by the server into client's local model
@@ -434,6 +454,9 @@ class FlowerClientRNN(fl.client.NumPyClient):
         # figure out if this client has access to GPU support or not
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.attack_type = None
+        self.is_malicious = False
+
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -445,14 +468,18 @@ class FlowerClientRNN(fl.client.NumPyClient):
 
     def get_parameters(self, config: Dict[str, Scalar]):
         """Extract model parameters and return them as a list of numpy arrays."""
-
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        state_dict = self.model.state_dict()
+        if self.attack_type == "MPAF" and self.is_malicious:
+            state_dict = mpaf_attack_nn(state_dict, self.device)
+        return [val.cpu().numpy() for _, val in state_dict.items()]
 
     def fit(self, parameters, config):
         """Train model received by the server (parameters) using the data.
 
         that belongs to this client. Then, send it back to the server.
         """
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         # Poison the dataset if the client is malicious
         self.traindataset = applyAttacks(trainset=self.traindataset, config=config)
 
@@ -514,6 +541,8 @@ class FlowerClientLSTM(fl.client.NumPyClient):
         # figure out if this client has access to GPU support or not
         self.device = torch.device(
             "cuda:0" if torch.cuda.is_available() else "cpu")
+        self.attack_type = None
+        self.is_malicious = False
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -525,14 +554,18 @@ class FlowerClientLSTM(fl.client.NumPyClient):
 
     def get_parameters(self, config: Dict[str, Scalar]):
         """Extract model parameters and return them as a list of numpy arrays."""
-
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        state_dict = self.model.state_dict()
+        if self.attack_type == "MPAF" and self.is_malicious:
+            state_dict = mpaf_attack_nn(state_dict, self.device)
+        return [val.cpu().numpy() for _, val in state_dict.items()]
 
     def fit(self, parameters, config):
         """Train model received by the server (parameters) using the data.
 
         that belongs to this client. Then, send it back to the server.
         """
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         # Poison the dataset if the client is malicious
         self.traindataset = applyAttacks(trainset=self.traindataset, config=config)
 
@@ -597,6 +630,8 @@ class FlowerClientLSVC(fl.client.NumPyClient):
         self.model.coef_ = np.zeros((num_classes, self.num_features))
         if self.model.fit_intercept:
             self.model.intercept_ = np.zeros((num_classes,))
+        self.attack_type = None
+        self.is_malicious = False
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -611,6 +646,9 @@ class FlowerClientLSVC(fl.client.NumPyClient):
             params = [self.model.coef_, self.model.intercept_]
         else:
             params = [self.model.coef_, ]
+
+        if self.attack_type == "MPAF" and self.is_malicious:
+            params = mpaf_attack_sklearn(params)
         return params
 
     def fit(self, parameters, config):
@@ -619,6 +657,8 @@ class FlowerClientLSVC(fl.client.NumPyClient):
         that belongs to this client. Then, send it back to the server.
         """
         # Poison the dataset if the client is malicious
+        self.attack_type = config["attack_type"]
+        self.is_malicious = config["is_malicious"]
         self.traindataset = applyAttacks(self.traindataset, config, model="LGR")
 
         # copy parameters sent by the server into client's local model
@@ -868,6 +908,10 @@ def applyAttacks(trainset: Dataset, config, model: str = None) -> Dataset:
         # LGR model needs samples for all labels
         if model != "LGR":
             return partial_dataset_for_GAN_attack(trainset=trainset)
+    elif config["attack_type"] == "MPAF":
+        if config["is_malicious"]:
+            print("----------------------------------Model Attacked------------------------------")
+            return trainset
     else:
         if config["is_malicious"]:
             print("----------------------------------Dataset Attacked------------------------------")

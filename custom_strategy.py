@@ -16,7 +16,7 @@ from server import get_on_fit_config, get_evaluate_fn
 
 
 def make_malicious_clients(max_attack_ratio: float, client_instructions: list) -> list:
-    num_malicious_clients = int(len(client_instructions) * max_attack_ratio)
+    num_malicious_clients = round(len(client_instructions) * max_attack_ratio)
     for i in range(num_malicious_clients):
         _, fit_ins = client_instructions[i]
         fit_ins.config["is_malicious"] = True

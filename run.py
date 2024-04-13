@@ -11,8 +11,10 @@ import time
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="rnn", version_base=None)
-def main(cfg: DictConfig):
+
+def run(config_path="conf", config_name="mlp"):
+    with hydra.initialize(config_path=config_path):
+        cfg = hydra.compose(config_name=config_name)
     start_time = time.time()
     # 1. Parse config & get experiment output dir
     print(OmegaConf.to_yaml(cfg))
@@ -20,7 +22,7 @@ def main(cfg: DictConfig):
     # by default it would be in <this directory>/outputs/<date>/<time>
     # you can retrieve the path to it as shown below. We'll use this path to
     # save the results of the simulation (see the last part of this main())
-    save_path = HydraConfig.get().runtime.output_dir
+    # save_path = cfg['hydra']['run']['dir']
 
     # 2. Prepare your dataset
     # When simulating FL workloads we have a lot of freedom on how the FL clients behave,
@@ -100,7 +102,7 @@ def main(cfg: DictConfig):
     # (This is one way of saving results, others are of course valid :) )
     # Now that the simulation is completed, we could save the results into the directory
     # that Hydra created automatically at the beginning of the experiment.
-    results_path = str(Path(save_path)) + "/" + getOutputFileName(cfg.model, cfg.attack_round, cfg.max_attack_ratio)
+    # results_path = str(Path(save_path)) + "/" + getOutputFileName(cfg.model, cfg.attack_round, cfg.max_attack_ratio)
 
     # add the history returned by the strategy into a standard Python dictionary
     # you can add more content if you wish (note that in the directory created by
@@ -109,15 +111,12 @@ def main(cfg: DictConfig):
     results = {"history": history, "config": config}
 
     # save the results as a python pickle
-    with open(str(results_path), "wb") as h:
-        pickle.dump(results, h, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open(str(results_path), "wb") as h:
+    #     pickle.dump(results, h, protocol=pickle.HIGHEST_PROTOCOL)
 
     end_time = time.time()
     print("Time taken:", end_time - start_time)
+    return results
 
 def getOutputFileName(model: str, attack_round: str, attack_ratio: float) -> str:
     return model + "_" + attack_round + "_" + str(int(attack_ratio * 100)) + ".pkl"
-
-
-if __name__ == "__main__":
-    main()

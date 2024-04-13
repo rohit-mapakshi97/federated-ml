@@ -1,0 +1,13 @@
+model: LSTM
+num_rounds: 10
+num_clients: 50
+num_classes: 10
+num_clients_per_round_fit: 50
+num_clients_per_round_eval: 10
+max_attack_ratio: 0
+attack_round: FULL
+attack_type: LF
+config_fit:
+  lr: 0.1
+  local_epochs: 2
+  batch_size: 20

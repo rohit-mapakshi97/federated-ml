@@ -4,7 +4,9 @@ from GAN import MNIST_GAN
 from typing import Any
 from torch.utils.data import Dataset, Subset
 import torch
-
+from collections import OrderedDict
+import copy
+import numpy as np
 
 # Original dataset needs to be wrapped with this to apply further custom transforms
 
@@ -198,61 +200,22 @@ def partial_dataset_for_GAN_attack(trainset: Subset, num_labels:int = 7) -> Part
     return dataset
 
 
+def mpaf_attack_nn(state_dict, device, mp_lambda=3) -> OrderedDict:
+    mpaf = copy.deepcopy(state_dict)
 
-# GAN Attacks
-# class GANDataset(Dataset):
-#     def __init__(self, flip_map: dict, samples_per_class: dict) -> None:
-#         self.samples_per_class = samples_per_class
-#         self.hp = MNIST_GAN.Hyperparameter()
-#         self.generator = MNIST_GAN.Generator(self.hp).to(torch.device("cuda"))
-#         # TODO externalize this model to config?
-#         self.generator.load_state_dict(torch.load("./GAN/generator_50.pth"))
-#         self.generator.eval()  # important
+    for key in mpaf.keys():
+        tmp = torch.zeros_like(mpaf[key], dtype=torch.float32).to(device)
+        w_base = torch.randn_like(mpaf[key], dtype=torch.float32).to(device)
+        tmp += (mpaf[key].to(device) - w_base) * mp_lambda
+        mpaf[key].copy_(tmp)
+    return mpaf
 
-#         self.samples = []
-#         self.labels = []
-#         for label in samples_per_class.keys():
-#             # Mislabel
-#             fake_images = self.generate_samples(no_images=samples_per_class[label], class_label=flip_map[label])
-#             self.samples.extend(fake_images)
-#             self.labels.extend([label] * samples_per_class[label])
-
-#     def generate_samples(self, no_images: int, class_label: int, device='cuda') -> Any:
-#         # One-hot encode the given class label
-#         device = torch.device(device)
-#         class_labels = torch.eye(self.hp.num_classes, dtype=torch.float32, device=device)[
-#             class_label].unsqueeze(0).repeat(no_images, 1)
-
-#         # Generate random noise
-#         fixed_noise = torch.randn(
-#             (no_images, self.hp.latent_size), device=device)
-
-#         with torch.no_grad():
-#             fake_images = self.generator(fixed_noise.to(device), class_labels.to(device))
-#         # print("_______________________FAKE SAMPLE GENERATED SUCCESSFULLY________________")
-#         return list(fake_images.to("cpu"))  # All the data in dataloaders are in CPU till training starts
-
-#     def __len__(self):
-#         return len(self.samples)
-
-#     def __getitem__(self, idx: int):
-#         return self.samples[idx], self.labels[idx]
-
-
-# def gan_attack(trainset: Subset) -> Dataset:
-#     """Performs targeted label flipping attack based on the given map"""
-#     num_classes = 10  # Labels from 0 to 9
-#     # Generate random non-repeating indices
-#     random_indices = torch.randperm(num_classes)[:7]
-#     # get indices that correspond to one of the selected classes
-#     indices = (torch.tensor(trainset.targets)[..., None] == random_indices).any(-1).nonzero(as_tuple=True)[0]
-
-#     all_labels = {i for i in range(10)}
-
-#     label_counts = get_label_counts(trainset.dataset)
-#     missing_labels = list(all_labels.difference(label_counts))
-#     num_images = sum(label_counts.values()) // len(label_counts)
-#     samples_per_class = {label: num_images for label in missing_labels}
-
-#     gan_dataset = GANDataset(flip_map=generate_flip_map(missing_labels), samples_per_class=samples_per_class)
-#     return ConcatDataset([trainset, gan_dataset])
+def mpaf_attack_sklearn(prams: list, mp_lambda=3):
+    new_params = []
+    for i in range(len(prams)):
+        pram = prams[i]
+        tmp = np.zeros_like(pram, dtype=np.float32)
+        w_base = np.random.randn(*pram.shape).astype(np.float32)
+        tmp += (pram - w_base) * mp_lambda
+        new_params.append(tmp)
+    return new_params

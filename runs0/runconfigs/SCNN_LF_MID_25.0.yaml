@@ -1,0 +1,14 @@
+model: SCNN
+num_rounds: 10
+num_clients: 100
+num_classes: 10
+num_clients_per_round_fit: 100
+num_clients_per_round_eval: 10
+max_attack_ratio: 0.25
+attack_round: MID
+attack_type: LF
+config_fit:
+  lr: 0.01
+  momentum: 0.9
+  local_epochs: 1
+  batch_size: 20
