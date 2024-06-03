@@ -5,14 +5,15 @@
 # check the followup tutorial on how to use Hydra in conjunction with Flower for a 
 # much more advanced usage of Hydra configs
 
+defence: True
 model: "RNN" #SCNN: Simple-CNN, LGR: Logistic Regression, SVC: Support Vector Classifier, MLP, RNN
 num_rounds: 10 # number of FL rounds in the experiment
-num_clients: 10 # number of total clients available (this is also the number of partitions we need to create)
+num_clients: 50 # number of total clients available (this is also the number of partitions we need to create)
 num_classes: 10 # number of classes in our dataset (we use MNIST) -- this tells the model how to setup its output fully-connected layer
-num_clients_per_round_fit: 10 # number of clients to involve in each fit round (fit  round = clients receive the model from the server and do local training)
+num_clients_per_round_fit: 50 # number of clients to involve in each fit round (fit  round = clients receive the model from the server and do local training)
 num_clients_per_round_eval: 10 # number of clients to involve in each evaluate round (evaluate round = client only evaluate the model sent by the server on their local dataset without training it)
-max_attack_ratio: 0.0 # % of clients that are malicious
-attack_round: "FULL" # FULL, MID, END are the options
+max_attack_ratio: 0.25 # % of clients that are malicious
+attack_round: "MID" # FULL, MID, END are the options
 attack_type: "LF" #LF, TLF, GAN
 config_fit: # a config that each client will receive (this is send by the server) when they are sampled. This allows you to dynamically configure the training on the client side as the simulation progresses
   lr: 0.1 # learning rate to use by the clients

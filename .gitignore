@@ -14,3 +14,13 @@ README_FLOWER.md
 GAN/MNIST_cDCGAN.py
 GAN/generator_5.pth
 GAN/generated_images
+
+#Experiments
+runs/*
+
+#Model images
+*.onnx
+
+pseudo.py
+model_tuning.ipynb
+data_visualization.ipynb

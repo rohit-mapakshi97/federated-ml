@@ -129,7 +129,6 @@ def generate_client_fn(traindataset_list: List[Dataset], valdataset_list: List[D
             model_name=model
         )
 
-
     # Control logic for other models
     # return the function to spawn client
     if model == "SCNN":
@@ -226,6 +225,15 @@ class FlowerClientSCNN(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
+
         return self.get_parameters({}), len(trainloader), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -260,7 +268,6 @@ class FlowerClientLGR(fl.client.NumPyClient):
             self.model.intercept_ = np.zeros((num_classes,))
         self.attack_type = None
         self.is_malicious = False
-
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -325,6 +332,14 @@ class FlowerClientLGR(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
         return self.get_parameters({}), len(X_train), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -425,6 +440,15 @@ class FlowerClientMLP(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
+        
         return self.get_parameters({}), len(trainloader), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -436,6 +460,7 @@ class FlowerClientMLP(fl.client.NumPyClient):
 
         return float(loss), len(valloader), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
                                              "confusion_matrix": conf_matrix}
+
 
 class FlowerClientRNN(fl.client.NumPyClient):
     """Define a Flower Client."""
@@ -456,7 +481,6 @@ class FlowerClientRNN(fl.client.NumPyClient):
             "cuda:0" if torch.cuda.is_available() else "cpu")
         self.attack_type = None
         self.is_malicious = False
-
 
     def set_parameters(self, parameters):
         """Receive parameters and apply them to the local model."""
@@ -512,6 +536,14 @@ class FlowerClientRNN(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
         return self.get_parameters({}), len(trainloader), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -523,6 +555,7 @@ class FlowerClientRNN(fl.client.NumPyClient):
 
         return float(loss), len(valloader), {"accuracy": accuracy, "precision": precision, "recall": recall, "f1": f1,
                                              "confusion_matrix": conf_matrix}
+
 
 class FlowerClientLSTM(fl.client.NumPyClient):
     """Define a Flower Client."""
@@ -598,6 +631,14 @@ class FlowerClientLSTM(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
         return self.get_parameters({}), len(trainloader), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -699,6 +740,14 @@ class FlowerClientLSVC(fl.client.NumPyClient):
         # of examples in the client (although this depends a bit on your choice of aggregation
         # strategy), and a dictionary of metrics (here you can add any additional data, but these
         # are ideally small data structures)
+        if config["defence"]:
+            parameters = self.get_parameters({})
+            # print("Testing--------------------------------------------------------------------------------")
+            # time.sleep(60)
+            loss, _, metrics = self.evaluate(parameters, config)
+            metrics["loss"] = loss
+            metrics["is_malicious"] = config["is_malicious"]
+            return parameters, len(trainloader), metrics
         return self.get_parameters({}), len(X_train), {}
 
     def evaluate(self, parameters: NDArrays, config: Dict[str, Scalar]):
@@ -806,7 +855,7 @@ class FlowerClientXGB(fl.client.Client):
             bst = xgb.train(
                 params,
                 train_dmatrix,
-                num_boost_round=num_local_round, #  num_boost_round = 1 for Random Forest (configured)
+                num_boost_round=num_local_round,  # num_boost_round = 1 for Random Forest (configured)
                 evals=[(val_dmatrix, "validate"), (train_dmatrix, "train")],
             )
         else:
@@ -824,6 +873,21 @@ class FlowerClientXGB(fl.client.Client):
         # Save model
         local_model = bst.save_raw("json")
         local_model_bytes = bytes(local_model)
+
+        if ins.config["defence"]:
+            ins.parameters = Parameters(tensor_type="", tensors=[local_model_bytes])
+            eval = self.evaluate(ins)
+            metrics = eval.metrics
+            metrics["loss"] = eval.loss
+            return FitRes(
+                status=Status(
+                    code=Code.OK,
+                    message="OK",
+                ),
+                parameters=Parameters(tensor_type="", tensors=[local_model_bytes]),
+                num_examples=len(X_train),
+                metrics=metrics,
+            )
 
         return FitRes(
             status=Status(

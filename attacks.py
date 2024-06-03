@@ -175,7 +175,7 @@ class GAN_Attack(object):
         return fake_image.to("cpu")  # All the data in dataloaders are in CPU till training starts
 
 
-def gan_attack(trainset: Subset, mapping=None, attack_ratio: float = 0.2, num_labels: int =7) -> Dataset:
+def gan_attack(trainset: Subset, mapping=None, attack_ratio: float = 1.0, num_labels: int =7) -> Dataset:
     """Performs targeted label flipping attack based on the given map"""
 
     num_classes = 10

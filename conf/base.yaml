@@ -5,6 +5,7 @@
 # check the followup tutorial on how to use Hydra in conjunction with Flower for a 
 # much more advanced usage of Hydra configs
 
+defence: True
 model: "SCNN" #SCNN: Simple-CNN, LGR: Logistic Regression, SVC: Support Vector Classifier
 num_rounds: 10 # number of FL rounds in the experiment
 num_clients: 50 # number of total clients available (this is also the number of partitions we need to create)
@@ -19,4 +20,3 @@ config_fit: # a config that each client will receive (this is send by the server
   momentum: 0.9 # momentum used by SGD optimiser on the client side
   local_epochs: 1 # number of training epochs each clients does in a fit() round
   batch_size: 20 # batch size to use by clients during training
-  

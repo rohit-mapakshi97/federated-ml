@@ -11,7 +11,7 @@ import time
 
 
 # A decorator for Hydra. This tells hydra to by default load the config in conf/base.yaml
-@hydra.main(config_path="conf", config_name="rnn", version_base=None)
+@hydra.main(config_path="conf", config_name="base", version_base=None)
 def main(cfg: DictConfig):
     start_time = time.time()
     # 1. Parse config & get experiment output dir
